@@ -944,6 +944,65 @@ class RBFard(Kernel):
             raise Exception("Wrong derivative index in RDFard")
         return A
     
+class RBFPre(Kernel):
+    '''
+    Squared Exponential kernel with isotropic distance measure and precomputed distance matrices. hyp = [log_ell, log_sigma]
+    here x is square matrix of training distances (n training subejcts by n training subjects)
+    and z is rectangular matrix of cross distances between training and testing subjects (n training subejcts by n testing subjects)
+    :param log_ell: characteristic length scale.
+    :param log_sigma: signal deviation.
+    '''
+    def __init__(self, log_ell=0., log_sigma=0.):
+        self.hyp = [log_ell, log_sigma]
+
+    def getCovMatrix(self,x=None,z=None,mode=None):
+        self.checkInputGetCovMatrix(x,z,mode)
+        ell = np.exp(self.hyp[0])         # characteristic length scale
+        sf2 = np.exp(2.*self.hyp[1])      # signal variance
+        if mode == 'self_test':           # self covariances for the test cases
+            #nn,D = z.shape
+            # as z has n testing subjects rows and n training subjects columns
+            nn = z.shape[0]
+            A = np.zeros((nn,1))
+        elif mode == 'train':             # compute covariance matix for training set
+            #A = spdist.cdist(old_div(x,ell),old_div(x,ell),'sqeuclidean')
+            A = (x * x) / (ell*ell)
+        elif mode == 'cross':             # compute covariance between data sets x and z
+            #A = spdist.cdist(old_div(x,ell),old_div(z,ell),'sqeuclidean')
+            # as z has n testing subjects rows and n training subjects columns
+            # but we need it the other way around here:
+            z = np.transpose(z)
+            A = (z * z) / (ell * ell)
+        A = sf2 * np.exp(-0.5*A)
+        return A
+
+
+    def getDerMatrix(self,x=None,z=None,mode=None,der=None):
+        self.checkInputGetDerMatrix(x,z,mode,der)
+        ell = np.exp(self.hyp[0])         # characteristic length scale
+        sf2 = np.exp(2.*self.hyp[1])      # signal variance
+        if mode == 'self_test':           # self covariances for the test cases
+            #nn,D = z.shape
+            # as z has n testing subjects rows and n training subjects columns:
+            nn = z.shape[0]
+            A = np.zeros((nn,1))
+        elif mode == 'train':             # compute covariance matix for dataset x
+            #A = spdist.cdist(old_div(x,ell),old_div(x,ell),'sqeuclidean')
+            A = (x * x) / (ell*ell)
+        elif mode == 'cross':             # compute covariance between data sets x and z
+            #A = spdist.cdist(old_div(x,ell),old_div(z,ell),'sqeuclidean')
+            # as z has n testing subjects rows and n training subjects columns
+            # but we need it the other way around here:
+            z = np.transpose(z)
+            A = (z * z) / (ell*ell)
+        if der == 0:    # compute derivative matrix wrt 1st parameter
+            A = sf2 * np.exp(-0.5*A) * A
+        elif der == 1:  # compute derivative matrix wrt 2nd parameter
+            A = 2. * sf2 * np.exp(-0.5*A)
+        else:
+            raise Exception("Calling for a derivative in RBF that does not exist")
+        return A
+    
 class DiscLogECoeff(Kernel):
    
     
